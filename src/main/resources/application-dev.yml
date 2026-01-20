@@ -1,0 +1,43 @@
+spring:
+  cloud:
+    gateway:
+      routes:
+        - id: user-service
+          uri: lb://user-service
+          predicates:
+            - Path=/api/v1/users/**
+        - id: appointment-service
+          uri: lb://appointment-service
+          predicates:
+            - Path=/api/v1/appointments/**
+        - id: prescription-service
+          uri: lb://prescription-service
+          predicates:
+            - Path=/api/v1/prescriptions/**
+        - id: lab-service
+          uri: lb://lab-service
+          predicates:
+            - Path=/api/v1/labs/**
+        - id: reports-service
+          uri: lb://reports-service
+          predicates:
+            - Path=/api/v1/reports/**
+        - id: sos-ambulance-service
+          uri: lb://sos-ambulance-service
+          predicates:
+            - Path=/api/v1/sos/**
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowed-origins: "http://localhost:3000,http://localhost:4200"
+            allowed-methods: "*"
+            allowed-headers: "*"
+            allow-credentials: true
+
+jwt:
+  secret: dev-secret-key-change-this-in-production-minimum-256-bits
+
+logging:
+  level:
+    root: INFO
+    org.springframework.cloud.gateway: DEBUG
