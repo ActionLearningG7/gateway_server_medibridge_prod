@@ -1,6 +1,43 @@
 spring:
+  # Redis Configuration
+  data:
+    redis:
+      url: ${REDIS_URL:redis://default:GOwUPRpFGRVtZMSiEEWlTapCvefmpsFj@hopper.proxy.rlwy.net:11415}
+
   cloud:
     gateway:
+      default-filters:
+        - PreserveHostHeader
+        # Remove CORS headers from downstream services
+        - RemoveResponseHeader=Access-Control-Allow-Origin
+        - RemoveResponseHeader=Access-Control-Allow-Credentials
+        - RemoveResponseHeader=Access-Control-Allow-Headers
+        - RemoveResponseHeader=Access-Control-Allow-Methods
+        - RemoveResponseHeader=Access-Control-Expose-Headers
+
+      # ===== CENTRALIZED CORS CONFIGURATION =====
+      globalcors:
+        add-to-simple-url-handler-mapping: true
+        cors-configurations:
+          '[/**]':
+            allowedOrigins:
+              - "http://localhost:3000"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - PATCH
+              - DELETE
+              - OPTIONS
+            allowedHeaders:
+              - "*"
+            exposedHeaders:
+              - "Content-Type"
+              - "Authorization"
+              - "X-Total-Count"
+            allowCredentials: true
+            maxAge: 3600
+
       routes:
         - id: user-service
           uri: lb://user-service
@@ -14,10 +51,49 @@ spring:
           uri: lb://prescription-service
           predicates:
             - Path=/api/v1/prescriptions/**
+
+        # Lab Service - Lab Tests Catalog
+        - id: lab-service-tests
+          uri: lb://lab-service
+          predicates:
+            - Path=/api/v1/lab-tests/**
+
+        # Lab Service - Patient Lab Orders
+        - id: lab-service-patient-orders
+          uri: lb://lab-service
+          predicates:
+            - Path=/api/v1/lab-orders/**
+
+        # Lab Service - Doctor Lab Orders
+        - id: lab-service-doctor-orders
+          uri: lb://lab-service
+          predicates:
+            - Path=/api/v1/doctors/lab-orders/**
+
+        # Lab Service - Admin Lab Tasks
+        - id: lab-service-admin-tasks
+          uri: lb://lab-service
+          predicates:
+            - Path=/api/v1/admin/lab/tasks/**
+
+        # Lab Service - Admin Lab Orders
+        - id: lab-service-admin-orders
+          uri: lb://lab-service
+          predicates:
+            - Path=/api/v1/admin/lab/orders/**
+
+        # Lab Service - Phlebotomist Tasks
+        - id: lab-service-phlebotomist-tasks
+          uri: lb://lab-service
+          predicates:
+            - Path=/api/v1/phlebotomy/**
+
+        # Lab Service - Legacy endpoint
         - id: lab-service
           uri: lb://lab-service
           predicates:
             - Path=/api/v1/labs/**
+
         - id: reports-service
           uri: lb://reports-service
           predicates:
@@ -26,13 +102,6 @@ spring:
           uri: lb://sos-ambulance-service
           predicates:
             - Path=/api/v1/sos/**
-      globalcors:
-        cors-configurations:
-          '[/**]':
-            allowed-origins: ${CORS_ORIGINS:http://test-frontend:3000}
-            allowed-methods: "*"
-            allowed-headers: "*"
-            allow-credentials: true
 
 jwt:
   secret: ${JWT_SECRET:test-secret-key-minimum-256-bits}

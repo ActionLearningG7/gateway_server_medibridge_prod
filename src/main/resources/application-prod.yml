@@ -1,7 +1,54 @@
 spring:
+  # Redis Configuration
+  data:
+    redis:
+      url: ${REDIS_URL:redis://default:GOwUPRpFGRVtZMSiEEWlTapCvefmpsFj@hopper.proxy.rlwy.net:11415}
+
   cloud:
     gateway:
+      # CORS is handled by gateway globalcors exclusively
+      default-filters:
+        - PreserveHostHeader
+        # Remove CORS headers from downstream services - gateway provides the only CORS headers
+        - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_FIRST
+
       routes:
+        # ===== WEBSOCKET ROUTES =====
+        - id: websocket-stomp-direct
+          uri: lb://appointment-service
+          predicates:
+            - Path=/ws/**
+          filters:
+            - PrefixPath=/api/v1
+          metadata:
+            connect-timeout: 60000
+            response-timeout: 3600000
+            id_timeout: 3600000
+
+        - id: websocket-stomp-api-short
+          uri: lb://appointment-service
+          predicates:
+            - Path=/api/ws/**
+          filters:
+            - PreserveHostHeader
+            - RewritePath=/api/ws/(?<segment>.*), /api/v1/ws/${segment}
+          metadata:
+            connect-timeout: 60000
+            response-timeout: 3600000
+            id_timeout: 3600000
+
+        - id: websocket-stomp-api
+          uri: lb://appointment-service
+          predicates:
+            - Path=/api/v1/ws/**
+          filters:
+            - PreserveHostHeader
+          metadata:
+            connect-timeout: 60000
+            response-timeout: 3600000
+            id_timeout: 3600000
+
+        # ===== OTHER SERVICES =====
         - id: user-service
           uri: lb://user-service
           predicates:
@@ -14,10 +61,49 @@ spring:
           uri: lb://prescription-service
           predicates:
             - Path=/api/v1/prescriptions/**
+
+        # Lab Service - Lab Tests Catalog
+        - id: lab-service-tests
+          uri: lb://lab-service
+          predicates:
+            - Path=/api/v1/lab-tests/**
+
+        # Lab Service - Patient Lab Orders
+        - id: lab-service-patient-orders
+          uri: lb://lab-service
+          predicates:
+            - Path=/api/v1/lab-orders/**
+
+        # Lab Service - Doctor Lab Orders
+        - id: lab-service-doctor-orders
+          uri: lb://lab-service
+          predicates:
+            - Path=/api/v1/doctors/lab-orders/**
+
+        # Lab Service - Admin Lab Tasks
+        - id: lab-service-admin-tasks
+          uri: lb://lab-service
+          predicates:
+            - Path=/api/v1/admin/lab/tasks/**
+
+        # Lab Service - Admin Lab Orders
+        - id: lab-service-admin-orders
+          uri: lb://lab-service
+          predicates:
+            - Path=/api/v1/admin/lab/orders/**
+
+        # Lab Service - Phlebotomist Tasks
+        - id: lab-service-phlebotomist-tasks
+          uri: lb://lab-service
+          predicates:
+            - Path=/api/v1/phlebotomy/**
+
+        # Lab Service - Legacy endpoint
         - id: lab-service
           uri: lb://lab-service
           predicates:
             - Path=/api/v1/labs/**
+
         - id: reports-service
           uri: lb://reports-service
           predicates:
@@ -26,13 +112,30 @@ spring:
           uri: lb://sos-ambulance-service
           predicates:
             - Path=/api/v1/sos/**
+
+      # ===== CENTRALIZED CORS CONFIGURATION =====
+      # Gateway is the SINGLE source of CORS headers
       globalcors:
+        add-to-simple-url-handler-mapping: true
         cors-configurations:
           '[/**]':
-            allowed-origins: ${CORS_ORIGINS}
-            allowed-methods: "*"
-            allowed-headers: "*"
-            allow-credentials: true
+            allowedOrigins:
+              - "${CORS_ORIGINS:http://localhost:3000}"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - PATCH
+              - OPTIONS
+            allowedHeaders:
+              - "*"
+            exposedHeaders:
+              - "Content-Type"
+              - "Authorization"
+              - "X-Total-Count"
+            allowCredentials: true
+            maxAge: 3600
 
 jwt:
   secret: ${JWT_SECRET}
