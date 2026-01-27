@@ -28,6 +28,19 @@ spring:
             response-timeout: 3600000
             id_timeout: 3600000
 
+        # ===== WEBSOCKET ROUTE - SOS SERVICE =====
+        - id: websocket-sos
+          uri: lb://sos-ambulance-service
+          predicates:
+            - Path=/ws-sos/**
+          filters:
+            - RewritePath=/ws-sos/(?<segment>.*), /ws/${segment}
+            - PreserveHostHeader
+          metadata:
+            connect-timeout: 60000
+            response-timeout: 3600000
+            id_timeout: 3600000
+
         # ===== WEBSOCKET ROUTE - DIRECT PATH (MUST be first for proper matching) =====
         # Supports: http://localhost:8080/ws/info (SockJS handshake)
         # Routes to: http://appointment-service:8082/api/v1/ws/info (via context-path)
@@ -219,6 +232,30 @@ spring:
           uri: lb://user-service
           predicates:
             - Path=/api/v1/doctors/**
+          filters:
+            - StripPrefix=0
+
+        # SOS Ambulance Service - Admin Drivers
+        - id: sos-ambulance-service-admin-drivers
+          uri: lb://sos-ambulance-service
+          predicates:
+            - Path=/api/v1/admin/ambulance-drivers/**
+          filters:
+            - StripPrefix=0
+
+        # SOS Ambulance Service - Admin Ambulances
+        - id: sos-ambulance-service-admin-ambulances
+          uri: lb://sos-ambulance-service
+          predicates:
+            - Path=/api/v1/admin/ambulances/**
+          filters:
+            - StripPrefix=0
+
+        # SOS Ambulance Service - Admin Incidents
+        - id: sos-ambulance-service-admin-incidents
+          uri: lb://sos-ambulance-service
+          predicates:
+            - Path=/api/v1/admin/sos-incidents/**
           filters:
             - StripPrefix=0
 

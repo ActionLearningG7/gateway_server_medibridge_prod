@@ -113,8 +113,12 @@ public class SecurityConfig {
                                                 .pathMatchers(HttpMethod.POST, "/api/ws/**").permitAll()
                                                 .pathMatchers(HttpMethod.OPTIONS, "/ws-lab/**").permitAll()
                                                 .pathMatchers(HttpMethod.POST, "/ws-lab/**").permitAll()
+                                                .pathMatchers("/api/ws-lab/**").permitAll()
                                                 .pathMatchers(HttpMethod.OPTIONS, "/api/ws-lab/**").permitAll()
                                                 .pathMatchers(HttpMethod.POST, "/api/ws-lab/**").permitAll()
+                                                .pathMatchers("/ws-sos/**").permitAll()
+                                                .pathMatchers(HttpMethod.OPTIONS, "/ws-sos/**").permitAll()
+                                                .pathMatchers(HttpMethod.POST, "/ws-sos/**").permitAll()
 
                                                 // Organization Address (Public)
                                                 .pathMatchers(HttpMethod.GET, "/api/v1/organization/**")

@@ -93,7 +93,9 @@ public class JwtAuthenticationFilter implements WebFilter {
     private boolean isWebSocketPath(String path) {
         return path.startsWith("/ws") ||
                 path.startsWith("/api/ws") ||
-                path.startsWith("/api/v1/ws") || path.startsWith("/api/ws/info");
+                path.startsWith("/api/v1/ws") ||
+                path.startsWith("/api/ws/info") ||
+                path.startsWith("/ws-sos");
     }
 
     /**
