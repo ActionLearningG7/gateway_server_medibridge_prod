@@ -309,7 +309,7 @@ spring:
           '[/**]':
             # Specific allowed origin ONLY - no wildcards
             allowedOrigins:
-              - "http://localhost:3000","https://medibridge-prod.vercel.app/"
+              - "https://medibridge-prod.vercel.app/"
             allowedMethods:
               - GET
               - POST
