@@ -10,7 +10,7 @@ spring:
       url: redis://default:GOwUPRpFGRVtZMSiEEWlTapCvefmpsFj@hopper.proxy.rlwy.net:11415
 
 server:
-  port: 8080
+  port: ${PORT:8080}
 
 # JWT Configuration (must match User Service configuration)
 jwt:
