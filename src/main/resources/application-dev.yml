@@ -259,7 +259,15 @@ spring:
           filters:
             - StripPrefix=0
 
-        # User Service - Admin (GENERIC - must come AFTER lab-service-admin-tasks)
+        # Appointment Service - Admin Queue Monitoring (MUST be BEFORE user-service-admin)
+        - id: appointment-service-admin-queues
+          uri: lb://appointment-service
+          predicates:
+            - Path=/api/v1/admin/queues/**
+          filters:
+            - StripPrefix=0
+
+        # User Service - Admin (GENERIC - must come AFTER specific admin routes)
         - id: user-service-admin
           uri: lb://user-service
           predicates:
@@ -301,7 +309,7 @@ spring:
           '[/**]':
             # Specific allowed origin ONLY - no wildcards
             allowedOrigins:
-              - "http://localhost:3000"
+              - "http://localhost:3000","https://medibridge-prod.vercel.app/"
             allowedMethods:
               - GET
               - POST

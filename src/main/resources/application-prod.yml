@@ -2,18 +2,48 @@ spring:
   # Redis Configuration
   data:
     redis:
-      url: ${REDIS_URL:redis://default:GOwUPRpFGRVtZMSiEEWlTapCvefmpsFj@hopper.proxy.rlwy.net:11415}
+      url: redis://default:GOwUPRpFGRVtZMSiEEWlTapCvefmpsFj@hopper.proxy.rlwy.net:11415
 
   cloud:
     gateway:
-      # CORS is handled by gateway globalcors exclusively
+      # ===== WEBSOCKET CONFIGURATION =====
+      # WebSocket connections require special handling to preserve upgrade headers
+      # CORS is handled by gateway globalcors - RemoveResponseHeader filters strip CORS from microservices
       default-filters:
-        - PreserveHostHeader
-        # Remove CORS headers from downstream services - gateway provides the only CORS headers
-        - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_FIRST
+        - PreserveHostHeader  # Critical for WebSocket handshake
+        - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_UNIQUE
+
 
       routes:
-        # ===== WEBSOCKET ROUTES =====
+        # ===== WEBSOCKET ROUTE - LAB SERVICE =====
+        # Supports: http://localhost:8080/ws-lab/info
+        - id: websocket-lab
+          uri: lb://lab-service
+          predicates:
+            - Path=/ws-lab/**
+          filters:
+            - PreserveHostHeader
+          metadata:
+            connect-timeout: 60000
+            response-timeout: 3600000
+            id_timeout: 3600000
+
+        # ===== WEBSOCKET ROUTE - SOS SERVICE =====
+        - id: websocket-sos
+          uri: lb://sos-ambulance-service
+          predicates:
+            - Path=/ws-sos/**
+          filters:
+            - RewritePath=/ws-sos/(?<segment>.*), /ws/${segment}
+            - PreserveHostHeader
+          metadata:
+            connect-timeout: 60000
+            response-timeout: 3600000
+            id_timeout: 3600000
+
+        # ===== WEBSOCKET ROUTE - DIRECT PATH (MUST be first for proper matching) =====
+        # Supports: http://localhost:8080/ws/info (SockJS handshake)
+        # Routes to: http://appointment-service:8082/api/v1/ws/info (via context-path)
         - id: websocket-stomp-direct
           uri: lb://appointment-service
           predicates:
@@ -25,6 +55,9 @@ spring:
             response-timeout: 3600000
             id_timeout: 3600000
 
+        # ===== WEBSOCKET ROUTE - API PATH (for /api/ws routing) =====
+        # Supports: http://localhost:8080/api/ws/info
+        # Routes to: http://appointment-service:8082/api/v1/ws/info
         - id: websocket-stomp-api-short
           uri: lb://appointment-service
           predicates:
@@ -37,90 +70,246 @@ spring:
             response-timeout: 3600000
             id_timeout: 3600000
 
+        # ===== WEBSOCKET ROUTE - FULL API PATH (for explicit /api/v1/ws routing) =====
+        # Supports: http://localhost:8080/api/v1/ws/info (when explicitly called)
         - id: websocket-stomp-api
           uri: lb://appointment-service
           predicates:
             - Path=/api/v1/ws/**
           filters:
+            # NO rewrite needed - appointment service has context-path /api/v1
             - PreserveHostHeader
           metadata:
             connect-timeout: 60000
             response-timeout: 3600000
             id_timeout: 3600000
 
-        # ===== OTHER SERVICES =====
-        - id: user-service
+
+        # User Service - Organization Configuration
+        - id: user-service-organization
           uri: lb://user-service
           predicates:
-            - Path=/api/v1/users/**
+            - Path=/api/v1/organization/**
+          filters:
+            - StripPrefix=0
+
+        # User Service - Authentication
+        - id: user-service-auth
+          uri: lb://user-service
+          predicates:
+            - Path=/api/v1/auth/**
+          filters:
+            - StripPrefix=0
+
+        # ===== IMPORTANT: Appointment Service specific routes MUST come BEFORE generic /doctors routes =====
+
+        # Appointment Service - Doctor Queues (SPECIFIC - must be before /api/v1/doctors/**)
+        - id: appointment-service-doctor-queues
+          uri: lb://appointment-service
+          predicates:
+            - Path=/api/v1/doctors/queues/**
+          filters:
+            - StripPrefix=0
+
+        # Appointment Service - Doctor Consultations (SPECIFIC - must be before /api/v1/doctors/**)
+        - id: appointment-service-doctor-consultations
+          uri: lb://appointment-service
+          predicates:
+            - Path=/api/v1/doctors/consultations/**
+          filters:
+            - StripPrefix=0
+
+        # Appointment Service - Patient Consultations (SPECIFIC - must be before /api/v1/patients/**)
+        - id: appointment-service-patient-consultations
+          uri: lb://appointment-service
+          predicates:
+            - Path=/api/v1/patients/consultations/**
+          filters:
+            - StripPrefix=0
+
+        # Appointment Service - Main
         - id: appointment-service
           uri: lb://appointment-service
           predicates:
             - Path=/api/v1/appointments/**
-        - id: prescription-service
-          uri: lb://prescription-service
+          filters:
+            - StripPrefix=0
+
+        # Appointment Service - Queues
+        - id: appointment-service-queues
+          uri: lb://appointment-service
           predicates:
-            - Path=/api/v1/prescriptions/**
+            - Path=/api/v1/queues/**
+          filters:
+            - StripPrefix=0
+
+        # Appointment Service - Video Sessions
+        - id: appointment-service-video
+          uri: lb://appointment-service
+          predicates:
+            - Path=/api/v1/video-sessions/**
+          filters:
+            - StripPrefix=0
+
+        # ===== IMPORTANT: Lab Service specific routes MUST come BEFORE generic routes =====
+
+        # Lab Service - Doctor Lab Orders (MUST be before user-service-doctors)
+        - id: lab-service-doctor-orders
+          uri: lb://lab-service
+          predicates:
+            - Path=/api/v1/doctors/lab-orders/**
+          filters:
+            - StripPrefix=0
+
+        # Lab Service - Admin Lab Tasks (MUST be before user-service-admin)
+        - id: lab-service-admin-tasks
+          uri: lb://lab-service
+          predicates:
+            - Path=/api/v1/admin/lab/tasks/**
+          filters:
+            - StripPrefix=0
+
+        # Lab Service - Admin Lab Orders (MUST be before user-service-admin)
+        - id: lab-service-admin-orders
+          uri: lb://lab-service
+          predicates:
+            - Path=/api/v1/admin/lab/orders/**
+          filters:
+            - StripPrefix=0
 
         # Lab Service - Lab Tests Catalog
         - id: lab-service-tests
           uri: lb://lab-service
           predicates:
             - Path=/api/v1/lab-tests/**
+          filters:
+            - StripPrefix=0
 
         # Lab Service - Patient Lab Orders
         - id: lab-service-patient-orders
           uri: lb://lab-service
           predicates:
             - Path=/api/v1/lab-orders/**
-
-        # Lab Service - Doctor Lab Orders
-        - id: lab-service-doctor-orders
-          uri: lb://lab-service
-          predicates:
-            - Path=/api/v1/doctors/lab-orders/**
-
-        # Lab Service - Admin Lab Tasks
-        - id: lab-service-admin-tasks
-          uri: lb://lab-service
-          predicates:
-            - Path=/api/v1/admin/lab/tasks/**
-
-        # Lab Service - Admin Lab Orders
-        - id: lab-service-admin-orders
-          uri: lb://lab-service
-          predicates:
-            - Path=/api/v1/admin/lab/orders/**
+          filters:
+            - StripPrefix=0
 
         # Lab Service - Phlebotomist Tasks
         - id: lab-service-phlebotomist-tasks
           uri: lb://lab-service
           predicates:
             - Path=/api/v1/phlebotomy/**
+          filters:
+            - StripPrefix=0
 
-        # Lab Service - Legacy endpoint
+        # Lab Service - Phlebotomist Admin (Result Upload)
+        - id: lab-service-phlebotomist-admin
+          uri: lb://lab-service
+          predicates:
+            - Path=/api/v1/phlebotomy-admin/**
+          filters:
+            - StripPrefix=0
+
+        # Lab Service - Legacy /labs endpoint
         - id: lab-service
           uri: lb://lab-service
           predicates:
             - Path=/api/v1/labs/**
+          filters:
+            - StripPrefix=0
 
+        # ===== User Service routes (GENERIC - must come AFTER specific routes) =====
+
+        # User Service - Patients
+        - id: user-service-patients
+          uri: lb://user-service
+          predicates:
+            - Path=/api/v1/patients/**
+          filters:
+            - StripPrefix=0
+
+        # User Service - Doctors (GENERIC - must come AFTER lab-service-doctor-orders)
+        - id: user-service-doctors
+          uri: lb://user-service
+          predicates:
+            - Path=/api/v1/doctors/**
+          filters:
+            - StripPrefix=0
+
+        # SOS Ambulance Service - Admin Drivers
+        - id: sos-ambulance-service-admin-drivers
+          uri: lb://sos-ambulance-service
+          predicates:
+            - Path=/api/v1/admin/ambulance-drivers/**
+          filters:
+            - StripPrefix=0
+
+        # SOS Ambulance Service - Admin Ambulances
+        - id: sos-ambulance-service-admin-ambulances
+          uri: lb://sos-ambulance-service
+          predicates:
+            - Path=/api/v1/admin/ambulances/**
+          filters:
+            - StripPrefix=0
+
+        # SOS Ambulance Service - Admin Incidents
+        - id: sos-ambulance-service-admin-incidents
+          uri: lb://sos-ambulance-service
+          predicates:
+            - Path=/api/v1/admin/sos-incidents/**
+          filters:
+            - StripPrefix=0
+
+        # Appointment Service - Admin Queue Monitoring (MUST be BEFORE user-service-admin)
+        - id: appointment-service-admin-queues
+          uri: lb://appointment-service
+          predicates:
+            - Path=/api/v1/admin/queues/**
+          filters:
+            - StripPrefix=0
+
+        # User Service - Admin (GENERIC - must come AFTER specific admin routes)
+        - id: user-service-admin
+          uri: lb://user-service
+          predicates:
+            - Path=/api/v1/admin/**
+          filters:
+            - StripPrefix=0
+
+        # Prescription Service
+        - id: prescription-service
+          uri: lb://prescription-service
+          predicates:
+            - Path=/api/v1/prescriptions/**
+          filters:
+            - StripPrefix=0
+
+        # Reports Service
         - id: reports-service
           uri: lb://reports-service
           predicates:
             - Path=/api/v1/reports/**
+          filters:
+            - StripPrefix=0
+
+        # SOS Ambulance Service
         - id: sos-ambulance-service
           uri: lb://sos-ambulance-service
           predicates:
             - Path=/api/v1/sos/**
+          filters:
+            - StripPrefix=0
 
       # ===== CENTRALIZED CORS CONFIGURATION =====
       # Gateway is the SINGLE source of CORS headers
+      # Services MUST NOT set their own CORS headers
       globalcors:
+        # Add CORS headers to ALL responses
         add-to-simple-url-handler-mapping: true
         cors-configurations:
           '[/**]':
+            # Specific allowed origin ONLY - no wildcards
             allowedOrigins:
-              - "${CORS_ORIGINS:http://localhost:3000}"
+              - "http://localhost:3000","https://medibridge-prod.vercel.app/"
             allowedMethods:
               - GET
               - POST
@@ -131,18 +320,24 @@ spring:
             allowedHeaders:
               - "*"
             exposedHeaders:
-              - "Content-Type"
               - "Authorization"
-              - "X-Total-Count"
+              - "Content-Type"
+              - "Accept"
+              - "Origin"
+              - "X-Requested-With"
+              - "Cache-Control"
+              - "pragma"
+              - "expires"
             allowCredentials: true
             maxAge: 3600
 
 jwt:
-  secret: ${JWT_SECRET}
+  secret: MediBridge2026!Pr0duct1on$ecretK3y#H0sp1talManag3m3ntSyst3m@Secur1ty
 
 logging:
   level:
-    root: WARN
-    org.springframework.cloud.gateway: INFO
-  file:
-    name: /var/log/medibridge/api-gateway.log
+    root: INFO
+    org.springframework.cloud.gateway: DEBUG
+    com.medibridge: DEBUG
+
+

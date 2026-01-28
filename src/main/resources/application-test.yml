@@ -21,7 +21,7 @@ spring:
         cors-configurations:
           '[/**]':
             allowedOrigins:
-              - "http://localhost:3000"
+              - "http://localhost:3000","https://medibridge-prod.vercel.app/"
             allowedMethods:
               - GET
               - POST
