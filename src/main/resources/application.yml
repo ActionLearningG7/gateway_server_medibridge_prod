@@ -21,7 +21,7 @@ jwt:
 eureka:
   client:
     service-url:
-      defaultZone: https://servermedibridgeprod-production.up.railway.app/
+      defaultZone: https://servermedibridgeprod-production.up.railway.app/eureka/
     register-with-eureka: true
     fetch-registry: true
   instance:
