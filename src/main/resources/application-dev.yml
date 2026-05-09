@@ -2,17 +2,14 @@ spring:
   # Redis Configuration
   data:
     redis:
-      url: ${REDIS_URL:redis://default:GOwUPRpFGRVtZMSiEEWlTapCvefmpsFj@hopper.proxy.rlwy.net:11415}
+      url: ${REDIS_URL:redis://localhost:6379}
 
   cloud:
     gateway:
-      # ===== WEBSOCKET CONFIGURATION =====
-      # WebSocket connections require special handling to preserve upgrade headers
-      # CORS is handled by gateway globalcors - RemoveResponseHeader filters strip CORS from microservices
+      # ...existing code...
       default-filters:
-        - PreserveHostHeader  # Critical for WebSocket handshake
+        - PreserveHostHeader
         - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_UNIQUE
-
 
       routes:
         # ===== WEBSOCKET ROUTE - LAB SERVICE =====
@@ -33,14 +30,6 @@ spring:
           uri: lb://sos-ambulance-service
           predicates:
             - Path=/ws-sos/**
-          filters:
-            - RewritePath=/ws-sos/(?<segment>.*), /ws/${segment}
-            - PreserveHostHeader
-          metadata:
-            connect-timeout: 60000
-            response-timeout: 3600000
-            id_timeout: 3600000
-
         # ===== WEBSOCKET ROUTE - DIRECT PATH (MUST be first for proper matching) =====
         # Supports: http://localhost:8080/ws/info (SockJS handshake)
         # Routes to: http://appointment-service:8082/api/v1/ws/info (via context-path)
@@ -299,17 +288,21 @@ spring:
           filters:
             - StripPrefix=0
 
+        # Payment Service
+        - id: payment-service
+          uri: lb://payment-service
+          predicates:
+            - Path=/api/v1/payments/**
+          filters:
+            - StripPrefix=0
+
       # ===== CENTRALIZED CORS CONFIGURATION =====
-      # Gateway is the SINGLE source of CORS headers
-      # Services MUST NOT set their own CORS headers
       globalcors:
-        # Add CORS headers to ALL responses
         add-to-simple-url-handler-mapping: true
         cors-configurations:
           '[/**]':
-            # Specific allowed origin ONLY - no wildcards
             allowedOrigins:
-              - "http://localhost:3000","https://medibridge-prod.vercel.app/"
+              - "${CORS_ALLOWED_ORIGINS:http://localhost:3000}"
             allowedMethods:
               - GET
               - POST
@@ -332,12 +325,21 @@ spring:
             maxAge: 3600
 
 jwt:
-  secret: ${JWT_SECRET:MediBridge2026!Pr0duct1on$ecretK3y#H0sp1talManag3m3ntSyst3m@Secur1ty}
+  secret: ${JWT_SECRET:MediBridge2026!Dev$ecretK3y#Tes7Env@Secur1ty}
 
 logging:
   level:
-    root: INFO
+    root: ${LOG_LEVEL:INFO}
     org.springframework.cloud.gateway: DEBUG
     com.medibridge: DEBUG
 
-
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_PROTOCOL:http}://${EUREKA_HOST:localhost}:${EUREKA_PORT:8761}/eureka/
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    prefer-ip-address: true
+    lease-renewal-interval-in-seconds: 30
+    lease-expiration-duration-in-seconds: 90

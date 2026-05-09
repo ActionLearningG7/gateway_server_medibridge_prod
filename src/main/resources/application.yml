@@ -2,32 +2,21 @@ spring:
   application:
     name: api-gateway
   profiles:
-    active: prod
+    active: ${SPRING_PROFILE:dev}
 
   # Redis Configuration
   data:
     redis:
-      url: redis://default:GOwUPRpFGRVtZMSiEEWlTapCvefmpsFj@hopper.proxy.rlwy.net:11415
+      url: ${REDIS_URL:redis://localhost:6379}
 
 server:
-  port: ${PORT:8080}
+  port: ${SERVER_PORT:8080}
 
 # JWT Configuration (must match User Service configuration)
 jwt:
-  secret: MediBridge2026!Pr0duct1on$ecretK3y#H0sp1talManag3m3ntSyst3m@Secur1ty
-  expiration: 3600000  # 1 hour in milliseconds
-  refresh-expiration: 86400000  # 24 hours in milliseconds
-
-eureka:
-  client:
-    service-url:
-      defaultZone: https://servermedibridgeprod-production.up.railway.app/eureka/
-    register-with-eureka: true
-    fetch-registry: true
-  instance:
-    prefer-ip-address: true
-    lease-renewal-interval-in-seconds: 30
-    lease-expiration-duration-in-seconds: 90
+  secret: ${JWT_SECRET:MediBridge2026!Dev$ecretK3y#Tes7Env@Secur1ty}
+  expiration: ${JWT_EXPIRATION_MS:3600000}
+  refresh-expiration: ${JWT_REFRESH_EXPIRATION_MS:86400000}
 
 management:
   endpoints:
